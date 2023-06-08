@@ -274,6 +274,7 @@ class LandmarksEstimation:
             else:
                 detected_faces, error, error_index = self.face_detector.detect_from_batch(image)
 
+        results_dict = {}
         batch = 0
         num_faces = 0
         em_max = -1
@@ -294,12 +295,13 @@ class LandmarksEstimation:
             landmarks = torch.empty((1, 68, 2), requires_grad=True).cuda()
 
         counter = 0
+        print("\ndetected faces: " + str(len(detected_faces[0])))
         for face in detected_faces[0]:
             conf = face[4]
-            if conf > 0.99 and counter == index_face:
+            if conf > 0.99:
                 pts_img, heatmaps = self.find_landmarks(face, image[0])
-                landmarks[batch] = pts_img.cuda()
+                results_dict[str("face_"+str(counter))] = {"face": face, "landmarks": pts_img.cuda()}
                 batch += 1
             counter += 1
 
-        return landmarks, detected_faces
+        return results_dict

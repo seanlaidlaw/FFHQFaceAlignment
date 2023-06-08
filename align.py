@@ -17,7 +17,7 @@ IMAGE_EXT = ('.jpg', '.jpeg', '.png')
 
 def align_crop_image(image, landmarks, transform_size=256):
     # Get estimated landmarks
-    lm = landmarks
+    lm = landmarks[0]
     lm_chin = lm[0: 17]            # left-right
     lm_eyebrow_left = lm[17: 22]   # left-right
     lm_eyebrow_right = lm[22: 27]  # left-right
@@ -136,22 +136,28 @@ def main():
         # Landmark estimation
         img_tensor = torch.tensor(np.transpose(img, (2, 0, 1))).float().cuda()
         with torch.no_grad():
-            landmarks, detected_faces = le.detect_landmarks(img_tensor.unsqueeze(0),detected_faces=None)
+            landmarks_per_faces = le.detect_landmarks(img_tensor.unsqueeze(0),detected_faces=None)
+            # print(landmarks_per_faces)
 
         # Align and crop face
-        if len(detected_faces) > 0:
-            if len(landmarks) > 0:
-                img = align_crop_image(image=img,
-                                      landmarks=np.asarray(landmarks[0].detach().cpu().numpy()),
-                                      transform_size=args.size)
-            else:
-                print("#. Warning: No landmarks found in {}".format(img_file))
-                with open('issues.txt', 'a' if osp.exists('issues.txt') else 'w') as f:
-                    f.write("{}\n".format(img_file))
+        if len(landmarks_per_faces) > 0:
+            for i in landmarks_per_faces:
+              face = landmarks_per_faces[i]["face"]
+              landmark = landmarks_per_faces[i]["landmarks"]
 
-            # Save output image
-            cv2.imwrite(osp.join(output_dir, osp.split(img_file)[-1]), cv2.cvtColor(img.copy(), cv2.COLOR_RGB2BGR))
-
+              if torch.sum(landmark) != 0:
+                  cropped_img = align_crop_image(image=img,
+                                                landmarks=np.asarray(landmark.detach().cpu().numpy()),
+                                                transform_size=args.size)
+                  # Save output image
+                  filename, file_extension = os.path.splitext(img_file)
+                  fileout = str(osp.split(filename)[-1] + "_" + i + file_extension)
+                  image_path = osp.join(output_dir, fileout)
+                  cv2.imwrite(image_path, cv2.cvtColor(cropped_img.copy(), cv2.COLOR_RGB2BGR))
+        else:
+          print("#. Warning: No landmarks found in {}".format(img_file))
+          with open('issues.txt', 'a' if osp.exists('issues.txt') else 'w') as f:
+              f.write("{}\n".format(img_file))
 
 if __name__ == "__main__":
     main()
