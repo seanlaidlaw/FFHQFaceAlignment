@@ -14,6 +14,7 @@ from lib.landmarks_pytorch import LandmarksEstimation
 IMAGE_EXT = ('.jpg', '.jpeg', '.png')
 
 
+
 def align_crop_image(image, landmarks, transform_size=256):
     # Get estimated landmarks
     lm = landmarks
@@ -136,18 +137,20 @@ def main():
         img_tensor = torch.tensor(np.transpose(img, (2, 0, 1))).float().cuda()
         with torch.no_grad():
             landmarks, detected_faces = le.detect_landmarks(img_tensor.unsqueeze(0),detected_faces=None)
-        # Align and crop face
-        if len(landmarks) > 0:
-            img = align_crop_image(image=img,
-                                   landmarks=np.asarray(landmarks[0].detach().cpu().numpy()),
-                                   transform_size=args.size)
-        else:
-            print("#. Warning: No landmarks found in {}".format(img_file))
-            with open('issues.txt', 'a' if osp.exists('issues.txt') else 'w') as f:
-                f.write("{}\n".format(img_file))
 
-        # Save output image
-        cv2.imwrite(osp.join(output_dir, osp.split(img_file)[-1]), cv2.cvtColor(img.copy(), cv2.COLOR_RGB2BGR))
+        # Align and crop face
+        if len(detected_faces) > 0:
+            if len(landmarks) > 0:
+                img = align_crop_image(image=img,
+                                      landmarks=np.asarray(landmarks[0].detach().cpu().numpy()),
+                                      transform_size=args.size)
+            else:
+                print("#. Warning: No landmarks found in {}".format(img_file))
+                with open('issues.txt', 'a' if osp.exists('issues.txt') else 'w') as f:
+                    f.write("{}\n".format(img_file))
+
+            # Save output image
+            cv2.imwrite(osp.join(output_dir, osp.split(img_file)[-1]), cv2.cvtColor(img.copy(), cv2.COLOR_RGB2BGR))
 
 
 if __name__ == "__main__":
