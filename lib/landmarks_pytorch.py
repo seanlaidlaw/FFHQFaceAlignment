@@ -115,7 +115,16 @@ def get_preds_fromhm(hm, center=None, scale=None):
 
 class LandmarksEstimation:
     def __init__(self, type='3D'):
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        # Check that MPS is available
+        if not torch.backends.mps.is_available():
+            if not torch.backends.mps.is_built():
+                print("MPS not available because the current PyTorch install was not "
+                    "built with MPS enabled.")
+            else:
+                print("MPS not available because the current MacOS version is not 12.3+ "
+                    "and/or you do not have an MPS-enabled device on this machine.")
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+
 
         # Load all needed models - Face detector and Pose detector
         network_size = NetworkSize.LARGE
@@ -128,7 +137,7 @@ class LandmarksEstimation:
 
         # SFD face detection
         path_to_detector = os.path.join(sys.path[0], 'lib/sfd/s3fd-619a316812.pth')
-        self.face_detector = FaceDetector(device='cpu', verbose=False, path_to_detector=path_to_detector)
+        self.face_detector = FaceDetector(device='mps', verbose=False, path_to_detector=path_to_detector)
 
         self.transformations_image = transforms.Compose([transforms.Resize(224),
                                                          transforms.CenterCrop(224), transforms.ToTensor(),
@@ -171,7 +180,7 @@ class LandmarksEstimation:
         center[1] = center[1] - (face[3] - face[1]) * 0.12
         scale = (face[2] - face[0] + face[3] - face[1]) / self.face_detector.reference_scale
 
-        inp = crop_torch(image.unsqueeze(0), center, scale).float()
+        inp = crop_torch(image.unsqueeze(0), center, scale).float().to(self.device)
         inp = inp.div(255.0)
         out = self.face_alignment_net(inp)[-1]
 
@@ -181,7 +190,7 @@ class LandmarksEstimation:
         out = out.cpu()
 
         pts, pts_img = get_preds_fromhm(out, center, scale)
-        out = out
+        out = out.to(self.device)
 
         # Added 3D landmark support
         if self.landmarks_type == LandmarksType._3D:
@@ -199,7 +208,7 @@ class LandmarksEstimation:
                 print(heatmaps.shape)
 
             depth_pred = self.depth_prediciton_net(torch.cat((inp, heatmaps), 1)).view(68, 1)
-            pts_img = pts_img
+            pts_img = pts_img.to(self.device)
             pts_img = torch.cat((pts_img, depth_pred * (1.0 / (256.0 / (200.0 * scale)))), 1)
 
         else:
@@ -290,9 +299,9 @@ class LandmarksEstimation:
             num_faces += 1
 
         if self.landmarks_type == LandmarksType._3D:
-            landmarks = torch.empty((1, 68, 3), requires_grad=True)
+            landmarks = torch.empty((1, 68, 3), requires_grad=True).to(self.device)
         else:
-            landmarks = torch.empty((1, 68, 2), requires_grad=True)
+            landmarks = torch.empty((1, 68, 2), requires_grad=True).to(self.device)
 
         counter = 0
         print("\ndetected faces: " + str(len(detected_faces[0])))
@@ -300,7 +309,7 @@ class LandmarksEstimation:
             conf = face[4]
             if conf > 0.99:
                 pts_img, heatmaps = self.find_landmarks(face, image[0])
-                results_dict[str("face_"+str(counter))] = {"face": face, "landmarks": pts_img}
+                results_dict[str("face_"+str(counter))] = {"face": face, "landmarks": pts_img.to(self.device)}
                 batch += 1
             counter += 1
 
