@@ -128,7 +128,7 @@ class LandmarksEstimation:
 
         # SFD face detection
         path_to_detector = os.path.join(sys.path[0], 'lib/sfd/s3fd-619a316812.pth')
-        self.face_detector = FaceDetector(device='cuda', verbose=False, path_to_detector=path_to_detector)
+        self.face_detector = FaceDetector(device='cpu', verbose=False, path_to_detector=path_to_detector)
 
         self.transformations_image = transforms.Compose([transforms.Resize(224),
                                                          transforms.CenterCrop(224), transforms.ToTensor(),
@@ -171,7 +171,7 @@ class LandmarksEstimation:
         center[1] = center[1] - (face[3] - face[1]) * 0.12
         scale = (face[2] - face[0] + face[3] - face[1]) / self.face_detector.reference_scale
 
-        inp = crop_torch(image.unsqueeze(0), center, scale).float().cuda()
+        inp = crop_torch(image.unsqueeze(0), center, scale).float()
         inp = inp.div(255.0)
         out = self.face_alignment_net(inp)[-1]
 
@@ -181,7 +181,7 @@ class LandmarksEstimation:
         out = out.cpu()
 
         pts, pts_img = get_preds_fromhm(out, center, scale)
-        out = out.cuda()
+        out = out
 
         # Added 3D landmark support
         if self.landmarks_type == LandmarksType._3D:
@@ -199,7 +199,7 @@ class LandmarksEstimation:
                 print(heatmaps.shape)
 
             depth_pred = self.depth_prediciton_net(torch.cat((inp, heatmaps), 1)).view(68, 1)
-            pts_img = pts_img.cuda()
+            pts_img = pts_img
             pts_img = torch.cat((pts_img, depth_pred * (1.0 / (256.0 / (200.0 * scale)))), 1)
 
         else:
@@ -208,9 +208,9 @@ class LandmarksEstimation:
         return pts_img, out
 
     def face_detection(self, image):
-        image_tensor = torch.tensor(np.transpose(image, (2, 0, 1))).float().cuda()
+        image_tensor = torch.tensor(np.transpose(image, (2, 0, 1))).float()
         if len(image_tensor.shape) == 3:
-            image_tensor = image_tensor.unsqueeze(0).cuda()
+            image_tensor = image_tensor.unsqueeze(0)
             detected_faces, error, error_index = self.face_detector.detect_from_batch(image_tensor)
         else:
             detected_faces, error, error_index = self.face_detector.detect_from_batch(image_tensor)
@@ -269,7 +269,7 @@ class LandmarksEstimation:
     def detect_landmarks(self, image, detected_faces=None):
         if detected_faces is None:
             if len(image.shape) == 3:
-                image = image.unsqueeze(0).cuda()
+                image = image.unsqueeze(0)
                 detected_faces, error, error_index = self.face_detector.detect_from_batch(image)
             else:
                 detected_faces, error, error_index = self.face_detector.detect_from_batch(image)
@@ -290,9 +290,9 @@ class LandmarksEstimation:
             num_faces += 1
 
         if self.landmarks_type == LandmarksType._3D:
-            landmarks = torch.empty((1, 68, 3), requires_grad=True).cuda()
+            landmarks = torch.empty((1, 68, 3), requires_grad=True)
         else:
-            landmarks = torch.empty((1, 68, 2), requires_grad=True).cuda()
+            landmarks = torch.empty((1, 68, 2), requires_grad=True)
 
         counter = 0
         print("\ndetected faces: " + str(len(detected_faces[0])))
@@ -300,7 +300,7 @@ class LandmarksEstimation:
             conf = face[4]
             if conf > 0.99:
                 pts_img, heatmaps = self.find_landmarks(face, image[0])
-                results_dict[str("face_"+str(counter))] = {"face": face, "landmarks": pts_img.cuda()}
+                results_dict[str("face_"+str(counter))] = {"face": face, "landmarks": pts_img}
                 batch += 1
             counter += 1
 

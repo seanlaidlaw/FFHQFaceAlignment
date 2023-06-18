@@ -134,7 +134,7 @@ def main():
         img = read_image_opencv(img_file).copy()
 
         # Landmark estimation
-        img_tensor = torch.tensor(np.transpose(img, (2, 0, 1))).float().cuda()
+        img_tensor = torch.tensor(np.transpose(img, (2, 0, 1))).float()
         with torch.no_grad():
             landmarks_per_faces = le.detect_landmarks(img_tensor.unsqueeze(0),detected_faces=None)
             # print(landmarks_per_faces)

@@ -23,9 +23,7 @@ def detect(net, img, device):
 	# Creates a batch of 1
 	img = img.reshape((1,) + img.shape)
 
-	
-	if torch.cuda.current_device() == 0:
-		torch.backends.cudnn.benchmark = True
+
 
 	img = torch.from_numpy(img).float().to(device)
 
@@ -41,8 +39,6 @@ def batch_detect(net, img_batch, device):
 
 	# img_batch.register_hook(lambda grad: print('images',grad))
 	# img_batch.register_hook(lambda grad: print('non zero values 1',torch.count_nonzero(grad)))
-	if torch.cuda.current_device() == 0:
-		torch.backends.cudnn.benchmark = True
 
 	BB, CC, HH, WW = img_batch.size()
 	# print(BB, CC, HH, WW)
